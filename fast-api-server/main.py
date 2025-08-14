@@ -10,12 +10,16 @@ import os
 import re
 from module import towav
 import io
+from fastapi import APIRouter
 
 # 환경 변수 로드
 load_dotenv()
 
 # FastAPI 앱 생성
 app = FastAPI(title="Haru FastAPI Server", version="1.0.0")
+
+# API 프리 픽스
+api = APIRouter(prefix="/api/v1")
 
 # ElevenLabs 클라이언트 초기화
 elevenlabs = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
@@ -211,7 +215,7 @@ def get_length_score(utterance: str) -> float:
         
     return score
 
-@app.post("/api/v1/score_utterance", response_model=ScoringResponse)
+@app.post("/score_utterance", response_model=ScoringResponse)
 async def score_utterance(request: ScoringRequest):
     """주어진 발화(utterance)에 대해 질문이 필요한지 여부를 판단하는 점수를 계산합니다."""
     total_score = 0.0
@@ -252,6 +256,9 @@ async def score_utterance(request: ScoringRequest):
 async def health_check():
     """서버 상태를 확인하는 엔드포인트"""
     return {"status": "healthy", "message": "Haru FastAPI Server is running"}
+
+# 라우터 포함
+app.include_router(api)
 
 if __name__ == "__main__":
     import uvicorn
