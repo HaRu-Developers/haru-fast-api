@@ -11,3 +11,5 @@ elevenlabs
 # 임베딩/유사도용
 sentence-transformers==2.7.0
 transformers>=4.40.0
+gliner
+accelerate

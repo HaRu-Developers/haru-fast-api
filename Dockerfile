@@ -14,8 +14,7 @@ COPY ./fast-api-server/requirements.txt .
 # 4) pip 업그레이드
 RUN pip install --upgrade pip
 
-# 5) 🔽 CPU용 PyTorch 먼저 설치 (권장: 공식 인덱스 사용)
-#    - GPU가 아니라면 아래 CPU 인덱스가 가장 깔끔합니다.
+# 5) CPU용 PyTorch 먼저 설치 (권장: 공식 인덱스 사용)
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
     torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1
 
