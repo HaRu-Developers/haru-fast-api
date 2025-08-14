@@ -57,5 +57,5 @@ jobs:
             docker network inspect haru-network >/dev/null 2>&1 || docker network create haru-network
             cd /home/ubuntu/cicd/fastapi
             echo "${{ secrets.ENV_FILE }}" > .env
-            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }} FASTAPI_TAG=latest docker compose -f docker-compose.fastapi.yml pull haru-fast-api
-            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }} FASTAPI_TAG=latest docker compose -f docker-compose.fastapi.yml up -d haru-fast-api
+            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }} FASTAPI_TAG=latest docker compose -f docker-compose.fastapi.yml pull fast-api-server
+            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }} FASTAPI_TAG=latest docker compose -f docker-compose.fastapi.yml up -d fast-api-server
