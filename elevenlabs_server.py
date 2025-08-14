@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from elevenlabs.client import ElevenLabs
 import os
 import towav
+import io
 
 load_dotenv()
 app = FastAPI()
@@ -19,7 +20,7 @@ async def stt(request: Request):
     audio_data = towav.add_wav_header(audio_PCM, SAMPLE_RATE, 2, 1)
     
     transcription = elevenlabs.speech_to_text.convert(
-        file=audio_data,
+        file=io.BytesIO(audio_data),
         model_id="scribe_v1", # Model to use, for now only "scribe_v1" is supported
         tag_audio_events=False, # Tag audio events like laughter, applause, etc.
         language_code="kor", # Language of the audio file. If set to None, the model will detect the language automatically.

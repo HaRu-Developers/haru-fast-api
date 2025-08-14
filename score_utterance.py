@@ -54,16 +54,16 @@ def get_similarity_score(request: ScoringRequest) -> float:
     if request.has_agenda and request.agenda_text:
         # Case 1: 안건지가 있는 경우
         similarity = calculate_similarity_score(request.utterance, request.agenda_text)
-        if similarity >= 0.9: score = 15
-        elif similarity >= 0.8: score = 10
-        elif similarity >= 0.7: score = 5
+        if similarity >= 0.9: score = 12
+        elif similarity >= 0.8: score = 7
+        elif similarity >= 0.7: score = 3
     elif not request.has_agenda and request.recent_utterances:
         # Case 2: 안건지가 없는 경우, 최근 발화와의 맥락 유사도 계산
         max_similarity = 0.0
         for recent_utterance in request.recent_utterances:
             max_similarity = max(max_similarity, calculate_similarity_score(request.utterance, recent_utterance))
             
-        if max_similarity >= 0.85: score = 10
+        if max_similarity >= 0.85: score = 7
         elif max_similarity >= 0.7: score = 5
     
     return score
@@ -140,13 +140,30 @@ async def score_utterance(request: ScoringRequest):
     """
     total_score = 0.0
     
-    total_score += get_similarity_score(request)
-    total_score += get_keyword_score(request.utterance)
-    total_score += get_named_entity_score(request.utterance)
-    total_score += get_format_score(request.utterance)
-    total_score += get_length_score(request.utterance)
-    
-    is_question_needed = total_score >= 10.0
+    # 각 함수 호출 및 점수 할당
+    similarity_score = get_similarity_score(request)
+    keyword_score = get_keyword_score(request.utterance)
+    named_entity_score = get_named_entity_score(request.utterance)
+    format_score = get_format_score(request.utterance)
+    length_score = get_length_score(request.utterance)
+
+    # 발화에 대한 각 점수 출력
+    print(f"\n[Scoring Utterance]: {request.utterance}")
+    print(f"Similarity Score: {similarity_score}")
+    print(f"Keyword Score: {keyword_score}")
+    print(f"Named Entity Score: {named_entity_score}")
+    print(f"Format Score: {format_score}")
+    print(f"Length Score: {length_score}")
+
+    # 총점 계산
+    total_score = similarity_score + keyword_score + named_entity_score + format_score + length_score
+
+    # 총점 출력
+    print(f"\nTotal Score: {total_score}")
+
+    # 질문 필요 여부 결정
+    is_question_needed = total_score >= 15.0
+    print(f"Is Question Needed: {is_question_needed}")
     
     return ScoringResponse(
         speech_id=request.speech_id,  # 요청받은 speech_id를 그대로 응답에 포함
