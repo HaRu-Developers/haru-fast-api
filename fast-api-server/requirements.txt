@@ -1,0 +1,9 @@
+# FastAPI 관련
+fastapi
+uvicorn
+
+# 환경 변수 관리
+python-dotenv
+
+# ElevenLabs API
+elevenlabs

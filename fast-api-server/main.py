@@ -1,49 +1,129 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional
+from dotenv import load_dotenv
+from elevenlabs.client import ElevenLabs
 from sentence_transformers import SentenceTransformer, util
 from gliner import GLiNER
-import re # get_length_score 함수에서 사용됩니다.
+import os
+import re
+from module import towav
+import io
 
-app = FastAPI()
+# 환경 변수 로드
+load_dotenv()
 
-# --- [서버 시작 시 모델 로드] ---
+# FastAPI 앱 생성
+app = FastAPI(title="Haru FastAPI Server", version="1.0.0")
+
+# ElevenLabs 클라이언트 초기화
+elevenlabs = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
+
+# 상수 정의
+SAMPLE_RATE = 16000
+
+# --- [NLP 모델 로드] ---
 try:
     # 1. 벡터 임베딩 모델 (한국어 범용)
     embedding_model = SentenceTransformer("snunlp/KR-SBERT-V40K-klueNLI-augSTS")
     
     # 2. Named Entity Recognition 모델 (한국어 전용 GLiNER)
-    model = GLiNER.from_pretrained("taeminlee/gliner_ko")
+    ner_model = GLiNER.from_pretrained("taeminlee/gliner_ko")
 
     print("NLP 모델 로드 완료.")
 except Exception as e:
     print(f"모델 로드 중 오류 발생: {e}")
     embedding_model = None
-    model = None
+    ner_model = None
 
 # --- [Pydantic 모델 정의] ---
 class ScoringRequest(BaseModel):
-    speech_id: int  # speech_id 필드 추가
+    speech_id: int
     utterance: str
     has_agenda: bool
     agenda_text: Optional[str] = None
     recent_utterances: Optional[List[str]] = Field(default_factory=list)
 
 class ScoringResponse(BaseModel):
-    speech_id: int  # speech_id 필드 추가
+    speech_id: int
     score: float
     isQuestionNeeded: bool
 
-# --- [기준 구현 함수] ---
+# --- [STT 관련 함수들] ---
+@app.post("/stt")
+async def stt(request: Request):
+    """음성을 텍스트로 변환하고 발화를 구분합니다."""
+    audio_PCM = await request.body()
+    
+    audio_data = towav.add_wav_header(audio_PCM, SAMPLE_RATE, 2, 1)
+    
+    transcription = elevenlabs.speech_to_text.convert(
+        file=io.BytesIO(audio_data),
+        model_id="scribe_v1",
+        tag_audio_events=False,
+        language_code="kor",
+        diarize=True,
+    )
+    
+    print(transcription.text)
+    
+    # 시간 순서대로 모든 발언을 담을 리스트
+    utterances = []
+    
+    current_utterance_text = ""
+    current_utterance_start_time = None
+    last_speaker_id = None
+
+    # 단어 목록을 순회하며 발언 마디를 구분
+    for i, word in enumerate(transcription.words):
+        if word.type not in {"word", "spacing"}:
+            continue
+
+        speaker = word.speaker_id or "unknown"
+        
+        # 첫 단어가 아니고, 화자가 변경되었을 경우
+        if i > 0 and speaker != last_speaker_id:
+            # 이전 발언 마디를 리스트에 추가
+            if current_utterance_text.strip():
+                utterances.append({
+                    "speaker_id": last_speaker_id,
+                    "text": current_utterance_text.strip(),
+                    "start": current_utterance_start_time
+                })
+            
+            # 새로운 발언을 위해 변수 초기화
+            current_utterance_text = ""
+            current_utterance_start_time = None
+
+        # 현재 단어 처리
+        if current_utterance_start_time is None:
+            current_utterance_start_time = word.start
+        
+        current_utterance_text += word.text
+        
+        last_speaker_id = speaker
+        
+    # 루프 종료 후 마지막으로 처리 중이던 발언 추가
+    if current_utterance_text.strip():
+        utterances.append({
+            "speaker_id": last_speaker_id,
+            "text": current_utterance_text.strip(),
+            "start": current_utterance_start_time
+        })
+    
+    return JSONResponse(content={
+        "message": "End of speech",
+        "utterances": utterances
+    })
+
+# --- [점수 계산 관련 함수들] ---
 def calculate_similarity_score(text1: str, text2: str) -> float:
     """두 텍스트 간의 코사인 유사도 점수를 계산합니다."""
     if embedding_model is None:
         return 0.0
     
-    # 텍스트를 임베딩 벡터로 변환
     embeddings = embedding_model.encode([text1, text2], convert_to_tensor=True)
-    
-    # 두 벡터 간의 코사인 유사도 계산
     cosine_similarity = util.cos_sim(embeddings[0], embeddings[1])
     return cosine_similarity.item()
 
@@ -63,15 +143,14 @@ def get_similarity_score(request: ScoringRequest) -> float:
         for recent_utterance in request.recent_utterances:
             max_similarity = max(max_similarity, calculate_similarity_score(request.utterance, recent_utterance))
             
-        if max_similarity >= 0.85: score = 7
-        elif max_similarity >= 0.7: score = 5
+        if max_similarity >= 0.85: score = 10
+        elif max_similarity >= 0.7: score = 7
     
     return score
 
 def get_keyword_score(utterance: str) -> float:
     """질문 유발 키워드 포함 여부에 따른 점수를 계산합니다."""
     score = 0.0
-    
     found_keywords = set()
 
     if any(k in utterance for k in ["제안", "추천", "생각", "아이디어"]):
@@ -91,12 +170,12 @@ def get_keyword_score(utterance: str) -> float:
 
 def get_named_entity_score(utterance: str) -> float:
     """Named Entity 포함 개수에 따른 점수를 계산합니다."""
-    if model is None:
+    if ner_model is None:
         return 0.0
 
     labels = ["사람", "장소", "날짜", "시간", "프로젝트명", "결정사항", "이슈", "목표", "예산", "제품", "서비스"] 
     
-    entities = model.predict_entities(utterance, labels)
+    entities = ner_model.predict_entities(utterance, labels)
     ner_count = len(entities)
     
     if ner_count >= 2:
@@ -132,12 +211,9 @@ def get_length_score(utterance: str) -> float:
         
     return score
 
-# --- [메인 API 엔드포인트] ---
 @app.post("/api/v1/score_utterance", response_model=ScoringResponse)
 async def score_utterance(request: ScoringRequest):
-    """
-    주어진 발화(utterance)에 대해 질문이 필요한지 여부를 판단하는 점수를 계산합니다.
-    """
+    """주어진 발화(utterance)에 대해 질문이 필요한지 여부를 판단하는 점수를 계산합니다."""
     total_score = 0.0
     
     # 각 함수 호출 및 점수 할당
@@ -166,7 +242,17 @@ async def score_utterance(request: ScoringRequest):
     print(f"Is Question Needed: {is_question_needed}")
     
     return ScoringResponse(
-        speech_id=request.speech_id,  # 요청받은 speech_id를 그대로 응답에 포함
+        speech_id=request.speech_id,
         score=total_score, 
         isQuestionNeeded=is_question_needed
     )
+
+# --- [헬스체크 엔드포인트] ---
+@app.get("/health")
+async def health_check():
+    """서버 상태를 확인하는 엔드포인트"""
+    return {"status": "healthy", "message": "Haru FastAPI Server is running"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)

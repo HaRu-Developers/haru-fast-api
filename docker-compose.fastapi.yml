@@ -1,0 +1,14 @@
+services:
+  fast-api-server:
+    image: andylee259/haru-fast-api:latest
+    container_name: fast-api-server
+    env_file:
+      - .env
+    expose:
+      - "8000"
+    restart: unless-stopped
+    networks: [haru-network]
+
+networks:
+  haru-network:
+    external: true
