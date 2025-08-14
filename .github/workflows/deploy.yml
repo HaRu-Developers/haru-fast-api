@@ -1,4 +1,4 @@
-name: Deploy fast-api-server (FastAPI)
+name: Deploy haru-fast-api-server (FastAPI)
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/fast-api-server:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/haru-fast-api:latest
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
       
@@ -57,5 +57,5 @@ jobs:
             docker network inspect haru-network >/dev/null 2>&1 || docker network create haru-network
             cd /home/ubuntu/cicd/fastapi
             echo "${{ secrets.ENV_FILE }}" > .env
-            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }} FASTAPI_TAG=latest docker compose -f docker-compose.fastapi.yml pull fast-api-server
-            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }} FASTAPI_TAG=latest docker compose -f docker-compose.fastapi.yml up -d fast-api-server
+            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }} FASTAPI_TAG=latest docker compose -f docker-compose.fastapi.yml pull haru-fast-api
+            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }} FASTAPI_TAG=latest docker compose -f docker-compose.fastapi.yml up -d haru-fast-api
