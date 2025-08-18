@@ -55,7 +55,7 @@ class ScoringResponse(BaseModel):
     isQuestionNeeded: bool
 
 # --- [STT 관련 함수들] ---
-@app.post("/stt")
+@api.post("/stt")
 async def stt(request: Request):
     """음성을 텍스트로 변환하고 발화를 구분합니다."""
     audio_PCM = await request.body()
@@ -215,7 +215,7 @@ def get_length_score(utterance: str) -> float:
         
     return score
 
-@app.post("/score_utterance", response_model=ScoringResponse)
+@api.post("/score_utterance", response_model=ScoringResponse)
 async def score_utterance(request: ScoringRequest):
     """주어진 발화(utterance)에 대해 질문이 필요한지 여부를 판단하는 점수를 계산합니다."""
     total_score = 0.0
@@ -252,7 +252,7 @@ async def score_utterance(request: ScoringRequest):
     )
 
 # --- [헬스체크 엔드포인트] ---
-@app.get("/health")
+@api.get("/health")
 async def health_check():
     """서버 상태를 확인하는 엔드포인트"""
     return {"status": "healthy", "message": "Haru FastAPI Server is running"}
