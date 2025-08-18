@@ -5,7 +5,7 @@ WORKDIR /app
 
 # 2) (선택) 최소 베이스 패키지 & pip 빌드툴 업그레이드
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
+    build-essential curl git ca-certificates \
     libgomp1 \
     libsndfile1 \
     libgl1 \
