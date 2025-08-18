@@ -13,3 +13,6 @@ sentence-transformers==2.7.0
 transformers>=4.40.0
 gliner
 accelerate
+
+# 추가 패키지
+python-mecab-ko
