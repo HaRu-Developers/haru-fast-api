@@ -242,7 +242,7 @@ async def score_utterance(request: ScoringRequest):
     print(f"\nTotal Score: {total_score}")
 
     # 질문 필요 여부 결정
-    is_question_needed = total_score >= 15.0
+    is_question_needed = total_score >= 5.0
     print(f"Is Question Needed: {is_question_needed}")
     
     return ScoringResponse(
